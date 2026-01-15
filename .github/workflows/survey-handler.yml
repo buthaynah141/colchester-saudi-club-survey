@@ -1,0 +1,62 @@
+name: Handle Survey Submissions
+
+on:
+  repository_dispatch:
+    types: [survey-submission]
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Survey Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const payload = context.payload.client_payload;
+            const timestamp = new Date(payload.timestamp).toLocaleString('ar-SA');
+            
+            const body = `
+            ## معلومات شخصية
+            - **الجنس:** ${payload.personalInfo.gender}
+            - **الفئة العمرية:** ${payload.personalInfo.age}
+            - **المرحلة الدراسية:** ${payload.personalInfo.studyLevel}
+
+            ## الأنشطة المفضلة
+            ${payload.activities.length > 0 ? payload.activities.map(a => `- ${a}`).join('\n') : 'لا يوجد'}
+
+            ${payload.culturalActivities.length > 0 ? `\n### الأنشطة الثقافية\n${payload.culturalActivities.map(a => `- ${a}`).join('\n')}` : ''}
+            ${payload.socialActivities.length > 0 ? `\n### الأنشطة الاجتماعية\n${payload.socialActivities.map(a => `- ${a}`).join('\n')}` : ''}
+            ${payload.sportsActivities.length > 0 ? `\n### الأنشطة الرياضية\n${payload.sportsActivities.map(a => `- ${a}`).join('\n')}` : ''}
+            ${payload.educationalActivities.length > 0 ? `\n### الأنشطة التعليمية\n${payload.educationalActivities.map(a => `- ${a}`).join('\n')}` : ''}
+
+            ## التفضيلات والمشاركة
+            - **تكرار الفعاليات:** ${payload.preferences.eventFrequency || 'غير محدد'}
+            - **الأوقات المفضلة:** ${payload.preferences.preferredTime.length > 0 ? payload.preferences.preferredTime.join(', ') : 'غير محدد'}
+            - **لديه عائلة:** ${payload.preferences.familyActivities || 'غير محدد'}
+
+            ## التوقعات من النادي
+            ${payload.expectations.length > 0 ? payload.expectations.map(e => `- ${e}`).join('\n') : 'لا يوجد'}
+
+            ## طرق التواصل المفضلة
+            ${payload.communicationMethod.length > 0 ? payload.communicationMethod.map(m => `- ${m}`).join('\n') : 'لا يوجد'}
+
+            ## التطوع
+            **الرغبة في التطوع:** ${payload.volunteerInterest || 'غير محدد'}
+
+            ## الاقتراحات
+            ${payload.suggestions || 'لا يوجد'}
+
+            ## معلومات التواصل
+            ${payload.contactInfo || 'غير متوفرة'}
+
+            ---
+            *تاريخ الإرسال: ${timestamp}*
+            `;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `استبيان جديد - ${timestamp}`,
+              body: body,
+              labels: ['survey-response']
+            });
